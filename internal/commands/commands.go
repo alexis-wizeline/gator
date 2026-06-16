@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alexis-wizeline/gator/internal/gatordb"
-	"github.com/alexis-wizeline/gator/internal/state"
 	"github.com/google/uuid"
+
+	"github.com/alexis-wizeline/gator/internal/gatordb"
+	"github.com/alexis-wizeline/gator/internal/rss"
+	"github.com/alexis-wizeline/gator/internal/state"
 )
 
 type Commands struct {
@@ -119,6 +121,22 @@ func HandleUsers(ctx context.Context, s *state.State, _ Command) error {
 		}
 		fmt.Printf("* %s\n", user.Name)
 	}
+	return nil
+}
+
+func HandleAgg(ctx context.Context, _ *state.State, c Command) error {
+	url := "https://www.wagslane.dev/index.xml"
+	if len(c.Arguments) > 0 {
+		url = c.Arguments[0]
+	}
+
+	feed, err := rss.FetchFeed(ctx, url)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%v\n", feed)
+
 	return nil
 }
 

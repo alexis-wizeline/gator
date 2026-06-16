@@ -19,6 +19,7 @@ const (
 	registerCommandName = "register"
 	resetCommandName    = "reset"
 	usersCommandName    = "users"
+	aggCommandName      = "agg"
 )
 
 func main() {
@@ -37,6 +38,7 @@ func main() {
 	gator.Register(registerCommandName, commands.HandlerRegister)
 	gator.Register(resetCommandName, commands.HandleReset)
 	gator.Register(usersCommandName, commands.HandleUsers)
+	gator.Register(aggCommandName, commands.HandleAgg)
 
 	args := os.Args[1:]
 	if len(args) < 1 {
