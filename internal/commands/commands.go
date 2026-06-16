@@ -140,6 +140,43 @@ func HandleAgg(ctx context.Context, _ *state.State, c Command) error {
 	return nil
 }
 
+func HandleAddFeed(ctx context.Context, s *state.State, c Command) error {
+	if len(c.Arguments) < 2 {
+		return errors.New("the addfeed command must have 2 argumenst name and url")
+	}
+
+	user, err := s.DB.GetUserByName(ctx, s.Config.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	name := c.Arguments[0]
+	url := c.Arguments[1]
+	feed, err := s.DB.CreateFedd(ctx, gatordb.CreateFeddParams{
+		ID:     uuid.New(),
+		Name:   name,
+		Url:    url,
+		UserID: user.ID,
+	})
+
+	fmt.Printf("feed added: %v\n", feed)
+
+	return nil
+}
+
+func HandleFeeds(ctx context.Context, s *state.State, _ Command) error {
+	feeds, err := s.DB.GetFeeds(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, feed := range feeds {
+		fmt.Printf("%s - %s, Crated by: %s\n", feed.Name, feed.Url, feed.User)
+	}
+
+	return nil
+}
+
 func checkUserExist(ctx context.Context, s *state.State, name string) (bool, error) {
 	_, err := s.DB.GetUserByName(ctx, name)
 	return !errors.Is(err, sql.ErrNoRows), err

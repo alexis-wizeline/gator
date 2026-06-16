@@ -20,6 +20,8 @@ const (
 	resetCommandName    = "reset"
 	usersCommandName    = "users"
 	aggCommandName      = "agg"
+	addfeedCommandName  = "addfeed"
+	feedsCommandName    = "feeds"
 )
 
 func main() {
@@ -39,6 +41,8 @@ func main() {
 	gator.Register(resetCommandName, commands.HandleReset)
 	gator.Register(usersCommandName, commands.HandleUsers)
 	gator.Register(aggCommandName, commands.HandleAgg)
+	gator.Register(addfeedCommandName, commands.HandleAddFeed)
+	gator.Register(feedsCommandName, commands.HandleFeeds)
 
 	args := os.Args[1:]
 	if len(args) < 1 {
