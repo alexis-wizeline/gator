@@ -38,15 +38,15 @@ func main() {
 	state := state.NewState(dbQueries, config)
 	gator := commands.GatorCommands()
 
-	gator.Register(loginCommandName, commands.HandlerLogin, false)
-	gator.Register(registerCommandName, commands.HandlerRegister, false)
-	gator.Register(resetCommandName, commands.HandleReset, false)
-	gator.Register(usersCommandName, commands.HandleUsers, true)
-	gator.Register(aggCommandName, commands.HandleAgg, true)
-	gator.Register(addfeedCommandName, commands.HandleAddFeed, true)
-	gator.Register(feedsCommandName, commands.HandleFeeds, true)
-	gator.Register(followCommandName, commands.HandleFollow, true)
-	gator.Register(followingCommandName, commands.HandleFollowing, true)
+	gator.Register(loginCommandName, commands.HandlerLogin)
+	gator.Register(registerCommandName, commands.HandlerRegister)
+	gator.Register(resetCommandName, commands.HandleReset)
+	gator.Register(usersCommandName, commands.HandleUsers)
+	gator.Register(aggCommandName, commands.HandleAgg)
+	gator.Register(addfeedCommandName, commands.GetUserMiddleware(commands.HandleAddFeed))
+	gator.Register(feedsCommandName, commands.HandleFeeds)
+	gator.Register(followCommandName, commands.GetUserMiddleware(commands.HandleFollow))
+	gator.Register(followingCommandName, commands.GetUserMiddleware(commands.HandleFollowing))
 
 	args := os.Args[1:]
 	if len(args) < 1 {

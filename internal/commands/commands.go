@@ -15,8 +15,7 @@ import (
 )
 
 type handler struct {
-	f             func(context.Context, *state.State, Command) error
-	loginRequired bool
+	f func(context.Context, *state.State, Command) error
 }
 
 type Commands struct {
@@ -28,17 +27,11 @@ func (c *Commands) Run(ctx context.Context, s *state.State, cmd Command) error {
 	if !ok {
 		return errors.New("unknow command")
 	}
-	if handler.loginRequired && s.Config.CurrentUserName == "" {
-		return errors.New("you need to login or register before run this command")
-	}
 	return handler.f(ctx, s, cmd)
 }
 
-func (c *Commands) Register(name string, f func(context.Context, *state.State, Command) error, requireUser bool) {
-	c.handlers[name] = handler{
-		f,
-		requireUser,
-	}
+func (c *Commands) Register(name string, f func(context.Context, *state.State, Command) error) {
+	c.handlers[name] = handler{f}
 }
 
 func GatorCommands() *Commands {
@@ -51,6 +44,7 @@ func GatorCommands() *Commands {
 type Command struct {
 	Name      string
 	Arguments []string
+	User      gatordb.User
 }
 
 func HandlerLogin(ctx context.Context, s *state.State, cmd Command) error {
@@ -155,24 +149,18 @@ func HandleAddFeed(ctx context.Context, s *state.State, c Command) error {
 	if len(c.Arguments) < 2 {
 		return errors.New("the addfeed command must have 2 argumenst name and url")
 	}
-
-	user, err := s.DB.GetUserByName(ctx, s.Config.CurrentUserName)
-	if err != nil {
-		return err
-	}
-
 	name := c.Arguments[0]
 	url := c.Arguments[1]
 	feed, err := s.DB.CreateFedd(ctx, gatordb.CreateFeddParams{
 		ID:     uuid.New(),
 		Name:   name,
 		Url:    url,
-		UserID: user.ID,
+		UserID: c.User.ID,
 	})
 
 	_, err = s.DB.CreateFeedFollow(ctx,
 		gatordb.CreateFeedFollowParams{
-			UserID: user.ID,
+			UserID: c.User.ID,
 			FeedID: feed.ID,
 		})
 	if err != nil {
@@ -203,15 +191,6 @@ func HandleFollow(ctx context.Context, s *state.State, c Command) error {
 		return errors.New("the feed url to follow is required")
 	}
 
-	if s.Config.CurrentUserName == "" {
-		return errors.New("You must register or login first")
-	}
-
-	user, err := s.DB.GetUserByName(ctx, s.Config.CurrentUserName)
-	if err != nil {
-		return err
-	}
-
 	feed, err := s.DB.GetFeedByURL(ctx, c.Arguments[0])
 	if err != nil {
 		return err
@@ -219,7 +198,7 @@ func HandleFollow(ctx context.Context, s *state.State, c Command) error {
 
 	follow, err := s.DB.CreateFeedFollow(ctx,
 		gatordb.CreateFeedFollowParams{
-			UserID: user.ID,
+			UserID: c.User.ID,
 			FeedID: feed.ID,
 		})
 	if err != nil {
@@ -231,13 +210,9 @@ func HandleFollow(ctx context.Context, s *state.State, c Command) error {
 	return nil
 }
 
-func HandleFollowing(ctx context.Context, s *state.State, _ Command) error {
-	user, err := s.DB.GetUserByName(ctx, s.Config.CurrentUserName)
-	if err != nil {
-		return err
-	}
+func HandleFollowing(ctx context.Context, s *state.State, c Command) error {
 
-	follows, err := s.DB.GetFeedFollowsByUser(ctx, user.ID)
+	follows, err := s.DB.GetFeedFollowsByUser(ctx, c.User.ID)
 	if err != nil {
 		return err
 	}
@@ -247,6 +222,22 @@ func HandleFollowing(ctx context.Context, s *state.State, _ Command) error {
 	}
 
 	return nil
+}
+
+func GetUserMiddleware(handler func(context.Context, *state.State, Command) error) func(context.Context, *state.State, Command) error {
+	return func(ctx context.Context, s *state.State, c Command) error {
+		if s.Config.CurrentUserName == "" {
+			return errors.New("You muts register or login in before run this command")
+		}
+
+		user, err := s.DB.GetUserByName(ctx, s.Config.CurrentUserName)
+		if err != nil {
+			return fmt.Errorf("Cannot get the user due to: %w", err)
+		}
+
+		c.User = user
+		return handler(ctx, s, c)
+	}
 }
 
 func checkUserExist(ctx context.Context, s *state.State, name string) (bool, error) {
