@@ -14,8 +14,13 @@ import (
 	"github.com/alexis-wizeline/gator/internal/state"
 )
 
+type handler struct {
+	f             func(context.Context, *state.State, Command) error
+	loginRequired bool
+}
+
 type Commands struct {
-	handlers map[string]func(context.Context, *state.State, Command) error
+	handlers map[string]handler
 }
 
 func (c *Commands) Run(ctx context.Context, s *state.State, cmd Command) error {
@@ -23,15 +28,21 @@ func (c *Commands) Run(ctx context.Context, s *state.State, cmd Command) error {
 	if !ok {
 		return errors.New("unknow command")
 	}
-	return handler(ctx, s, cmd)
+	if handler.loginRequired && s.Config.CurrentUserName == "" {
+		return errors.New("you need to login or register before run this command")
+	}
+	return handler.f(ctx, s, cmd)
 }
 
-func (c *Commands) Register(name string, f func(context.Context, *state.State, Command) error) {
-	c.handlers[name] = f
+func (c *Commands) Register(name string, f func(context.Context, *state.State, Command) error, requireUser bool) {
+	c.handlers[name] = handler{
+		f,
+		requireUser,
+	}
 }
 
 func GatorCommands() *Commands {
-	handlers := make(map[string]func(context.Context, *state.State, Command) error)
+	handlers := make(map[string]handler)
 	return &Commands{
 		handlers,
 	}
@@ -159,6 +170,16 @@ func HandleAddFeed(ctx context.Context, s *state.State, c Command) error {
 		UserID: user.ID,
 	})
 
+	_, err = s.DB.CreateFeedFollow(ctx,
+		gatordb.CreateFeedFollowParams{
+			UserID: user.ID,
+			FeedID: feed.ID,
+		})
+	if err != nil {
+		fmt.Println("feed follow")
+		return err
+	}
+
 	fmt.Printf("feed added: %v\n", feed)
 
 	return nil
@@ -172,6 +193,57 @@ func HandleFeeds(ctx context.Context, s *state.State, _ Command) error {
 
 	for _, feed := range feeds {
 		fmt.Printf("%s - %s, Crated by: %s\n", feed.Name, feed.Url, feed.User)
+	}
+
+	return nil
+}
+
+func HandleFollow(ctx context.Context, s *state.State, c Command) error {
+	if len(c.Arguments) < 1 {
+		return errors.New("the feed url to follow is required")
+	}
+
+	if s.Config.CurrentUserName == "" {
+		return errors.New("You must register or login first")
+	}
+
+	user, err := s.DB.GetUserByName(ctx, s.Config.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	feed, err := s.DB.GetFeedByURL(ctx, c.Arguments[0])
+	if err != nil {
+		return err
+	}
+
+	follow, err := s.DB.CreateFeedFollow(ctx,
+		gatordb.CreateFeedFollowParams{
+			UserID: user.ID,
+			FeedID: feed.ID,
+		})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("user: %s, now follows the Feed: %s\n", follow.Username, follow.FeedName)
+
+	return nil
+}
+
+func HandleFollowing(ctx context.Context, s *state.State, _ Command) error {
+	user, err := s.DB.GetUserByName(ctx, s.Config.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	follows, err := s.DB.GetFeedFollowsByUser(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, follow := range follows {
+		fmt.Printf("%s\n", follow.Name)
 	}
 
 	return nil
