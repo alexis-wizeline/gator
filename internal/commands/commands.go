@@ -62,12 +62,12 @@ func HandlerLogin(ctx context.Context, s *state.State, cmd Command) error {
 		return fmt.Errorf("user %s is not yet register", username)
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("GetUserByName Failed: %w", err)
 	}
 
 	err = s.Config.SetUser(username)
 	if err != nil {
-		return err
+		return fmt.Errorf("Config.SetUser Failed: %w", err)
 	}
 
 	fmt.Printf("welcome %s you are login now..\n", cmd.Arguments[0])
@@ -86,7 +86,7 @@ func HandlerRegister(ctx context.Context, s *state.State, cmd Command) error {
 	}
 
 	if !errors.Is(err, sql.ErrNoRows) {
-		return err
+		return fmt.Errorf("GetUserByName Failed: %w", err)
 	}
 
 	currentTime := time.Now()
@@ -97,7 +97,7 @@ func HandlerRegister(ctx context.Context, s *state.State, cmd Command) error {
 		UpdatedAt: currentTime,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("CreateUser failed: %w", err)
 	}
 
 	fmt.Printf(`
@@ -116,7 +116,7 @@ func HandleReset(ctx context.Context, s *state.State, _ Command) error {
 func HandleUsers(ctx context.Context, s *state.State, _ Command) error {
 	users, err := s.DB.GetUsers(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("GetUsers Failed: %w", err)
 	}
 
 	for _, user := range users {
@@ -137,7 +137,7 @@ func HandleAgg(ctx context.Context, _ *state.State, c Command) error {
 
 	feed, err := rss.FetchFeed(ctx, url)
 	if err != nil {
-		return err
+		return fmt.Errorf("FetchFeed Fail: %w", err)
 	}
 
 	fmt.Printf("%v\n", feed)
@@ -157,6 +157,9 @@ func HandleAddFeed(ctx context.Context, s *state.State, c Command) error {
 		Url:    url,
 		UserID: c.User.ID,
 	})
+	if err != nil {
+		return fmt.Errorf("CreateFedd Failed: %w", err)
+	}
 
 	_, err = s.DB.CreateFeedFollow(ctx,
 		gatordb.CreateFeedFollowParams{
@@ -164,8 +167,7 @@ func HandleAddFeed(ctx context.Context, s *state.State, c Command) error {
 			FeedID: feed.ID,
 		})
 	if err != nil {
-		fmt.Println("feed follow")
-		return err
+		return fmt.Errorf("CreateFeedFollow Failed: %w", err)
 	}
 
 	fmt.Printf("feed added: %v\n", feed)
@@ -176,7 +178,7 @@ func HandleAddFeed(ctx context.Context, s *state.State, c Command) error {
 func HandleFeeds(ctx context.Context, s *state.State, _ Command) error {
 	feeds, err := s.DB.GetFeeds(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("GetFeeds Failed: %w", err)
 	}
 
 	for _, feed := range feeds {
@@ -193,7 +195,7 @@ func HandleFollow(ctx context.Context, s *state.State, c Command) error {
 
 	feed, err := s.DB.GetFeedByURL(ctx, c.Arguments[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("GetFeedByURL Failed: %w", err)
 	}
 
 	follow, err := s.DB.CreateFeedFollow(ctx,
@@ -202,7 +204,7 @@ func HandleFollow(ctx context.Context, s *state.State, c Command) error {
 			FeedID: feed.ID,
 		})
 	if err != nil {
-		return err
+		return fmt.Errorf("CreateFeedFollow Failed: %w", err)
 	}
 
 	fmt.Printf("user: %s, now follows the Feed: %s\n", follow.Username, follow.FeedName)
@@ -214,11 +216,32 @@ func HandleFollowing(ctx context.Context, s *state.State, c Command) error {
 
 	follows, err := s.DB.GetFeedFollowsByUser(ctx, c.User.ID)
 	if err != nil {
-		return err
+		return fmt.Errorf("GetFeedFollowsByUser Failed: %w", err)
 	}
 
 	for _, follow := range follows {
 		fmt.Printf("%s\n", follow.Name)
+	}
+
+	return nil
+}
+
+func HandleUnfollow(ctx context.Context, s *state.State, c Command) error {
+	if len(c.Arguments) < 1 {
+		return errors.New("the feed url is needed")
+	}
+
+	feed, err := s.DB.GetFeedByURL(ctx, c.Arguments[0])
+	if err != nil {
+		return fmt.Errorf("GetFeedByURL Failed: %w", err)
+	}
+
+	err = s.DB.DeleteFeedFollow(ctx, gatordb.DeleteFeedFollowParams{
+		UserID: c.User.ID,
+		FeedID: feed.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("DeleteFeedFollow Failed: %w", err)
 	}
 
 	return nil

@@ -24,6 +24,7 @@ const (
 	feedsCommandName     = "feeds"
 	followCommandName    = "follow"
 	followingCommandName = "following"
+	unfollowCommandName  = "unfollow"
 )
 
 func main() {
@@ -47,6 +48,7 @@ func main() {
 	gator.Register(feedsCommandName, commands.HandleFeeds)
 	gator.Register(followCommandName, commands.GetUserMiddleware(commands.HandleFollow))
 	gator.Register(followingCommandName, commands.GetUserMiddleware(commands.HandleFollowing))
+	gator.Register(unfollowCommandName, commands.GetUserMiddleware(commands.HandleUnfollow))
 
 	args := os.Args[1:]
 	if len(args) < 1 {
