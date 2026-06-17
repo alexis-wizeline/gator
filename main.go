@@ -28,15 +28,19 @@ const (
 )
 
 func main() {
-	config := config.Read()
-	db, err := sql.Open("postgres", config.DBUrl)
+	cfg, err := config.Read()
 	if err != nil {
-		fmt.Printf("unable to connect to: %s\n", config.DBUrl)
+		fmt.Printf("Unable to read config file: %s\n", err)
+		os.Exit(1)
+	}
+	db, err := sql.Open("postgres", cfg.DBUrl)
+	if err != nil {
+		fmt.Printf("unable to connect to: %s\n", cfg.DBUrl)
 		os.Exit(1)
 	}
 
 	dbQueries := gatordb.New(db)
-	state := state.NewState(dbQueries, config)
+	state := state.NewState(dbQueries, cfg)
 	gator := commands.GatorCommands()
 
 	gator.Register(loginCommandName, commands.HandlerLogin)

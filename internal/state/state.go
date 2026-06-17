@@ -10,9 +10,9 @@ type State struct {
 	Config *config.Config
 }
 
-func NewState(queries *gatordb.Queries, cgf *config.Config) *State {
+func NewState(queries *gatordb.Queries, cfg *config.Config) *State {
 	return &State{
 		DB:     queries,
-		Config: cgf,
+		Config: cfg,
 	}
 }

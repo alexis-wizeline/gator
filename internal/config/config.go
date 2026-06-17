@@ -19,36 +19,33 @@ func (c Config) SetUser(username string) error {
 	return write(c)
 }
 
-func Read() *Config {
+func Read() (*Config, error) {
 	var cfg Config
 
 	file, err := getFile()
 	if err != nil {
-		fmt.Printf("unable to open config file: %s\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("unable to open config file: %s\n", err)
 	}
 	defer file.Close()
 
 	stat, err := file.Stat()
 	if err != nil {
-		fmt.Printf("sta failed: %s\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("stat failed: %s\n", err)
 	}
 
 	buf := make([]byte, stat.Size())
 	_, err = file.Read(buf)
 	if err != nil {
-		fmt.Printf("unable to read config file: %s\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("unable to read config file: %s\n", err)
 	}
 
 	err = json.Unmarshal(buf, &cfg)
 	if err != nil {
-		fmt.Printf("unable to parse config: %s\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("unable to parse config: %s\n", err)
+
 	}
 
-	return &cfg
+	return &cfg, nil
 }
 
 func getFile() (*os.File, error) {

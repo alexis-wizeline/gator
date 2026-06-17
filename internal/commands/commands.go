@@ -151,7 +151,7 @@ func HandleAddFeed(ctx context.Context, s *state.State, c Command) error {
 	}
 	name := c.Arguments[0]
 	url := c.Arguments[1]
-	feed, err := s.DB.CreateFedd(ctx, gatordb.CreateFeddParams{
+	feed, err := s.DB.CreateFeed(ctx, gatordb.CreateFeedParams{
 		ID:     uuid.New(),
 		Name:   name,
 		Url:    url,

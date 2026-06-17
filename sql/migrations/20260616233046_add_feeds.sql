@@ -8,8 +8,8 @@ CREATE TABLE feeds (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE feeds ADD CONSTRAINT unique_feed_name UNIQUE (name);
+ALTER TABLE feeds ADD CONSTRAINT unique_feed_url UNIQUE (url);
 
 -- +goose Down
 DROP TABLE feeds;
-DROP INDEX IF EXISTS unique_feed_name;
+DROP INDEX IF EXISTS unique_feed_url;
