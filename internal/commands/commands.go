@@ -129,20 +129,23 @@ func HandleUsers(ctx context.Context, s *state.State, _ Command) error {
 	return nil
 }
 
-func HandleAgg(ctx context.Context, _ *state.State, c Command) error {
-	url := "https://www.wagslane.dev/index.xml"
-	if len(c.Arguments) > 0 {
-		url = c.Arguments[0]
+func HandleAgg(ctx context.Context, s *state.State, c Command) error {
+	if len(c.Arguments) < 1 {
+		return errors.New("the interval is required")
 	}
 
-	feed, err := rss.FetchFeed(ctx, url)
+	duration, err := time.ParseDuration(c.Arguments[0])
 	if err != nil {
-		return fmt.Errorf("FetchFeed Fail: %w", err)
+		return fmt.Errorf("unable to parse the provided duration %w", err)
 	}
 
-	fmt.Printf("%v\n", feed)
-
-	return nil
+	ticker := time.NewTicker(duration)
+	for ; ; <-ticker.C {
+		err = scrapeFeeds(ctx, s)
+		if err != nil {
+			return fmt.Errorf("scrapeFeeds Failed: %w", err)
+		}
+	}
 }
 
 func HandleAddFeed(ctx context.Context, s *state.State, c Command) error {
@@ -266,4 +269,29 @@ func GetUserMiddleware(handler func(context.Context, *state.State, Command) erro
 func checkUserExist(ctx context.Context, s *state.State, name string) (bool, error) {
 	_, err := s.DB.GetUserByName(ctx, name)
 	return !errors.Is(err, sql.ErrNoRows), err
+}
+
+func scrapeFeeds(ctx context.Context, s *state.State) error {
+
+	nextFeed, err := s.DB.GetNextFeedToFetch(ctx)
+	if err != nil {
+		return fmt.Errorf("GetNextFeedToFetch Failed: %w", err)
+	}
+
+	feed, err := rss.FetchFeed(ctx, nextFeed.Url)
+	if err != nil {
+		return fmt.Errorf(" %s FetchFeed Fail: %w", nextFeed.Name, err)
+	}
+
+	err = s.DB.MarkFeedFetched(ctx, nextFeed.ID)
+	if err != nil {
+		return fmt.Errorf("MarkFeedFetched Failed: %w", err)
+	}
+
+	fmt.Printf("Feed %s fetched\n", feed.Channel.Title)
+	for _, item := range feed.Channel.Item {
+		fmt.Printf("%v\n", item)
+	}
+
+	return nil
 }
