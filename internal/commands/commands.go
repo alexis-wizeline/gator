@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -290,8 +291,64 @@ func scrapeFeeds(ctx context.Context, s *state.State) error {
 
 	fmt.Printf("Feed %s fetched\n", feed.Channel.Title)
 	for _, item := range feed.Channel.Item {
-		fmt.Printf("%v\n", item)
+		pubTime, err := parseTime(item.PubDate)
+		if err != nil {
+			return fmt.Errorf("parseTiem Failed: %w", err)
+		}
+
+		hasDesc := len(item.Description) > 0
+
+		post, err := s.DB.CreatePost(ctx,
+			gatordb.CreatePostParams{
+				ID:          uuid.New(),
+				Title:       item.Title,
+				FeedID:      nextFeed.ID,
+				Url:         item.Link,
+				PublishedAt: pubTime,
+				Description: sql.NullString{
+					Valid:  hasDesc,
+					String: item.Description,
+				},
+			})
+
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			fmt.Printf("%s already exists\n", item.Title)
+			continue
+		}
+
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("post created: %s: %s", post.ID, post.Title)
 	}
 
 	return nil
+}
+
+func parseTime(s string) (time.Time, error) {
+	layouts := []string{
+		time.RFC1123Z,
+		time.Layout,
+		time.ANSIC,
+		time.UnixDate,
+		time.RubyDate,
+		time.RFC822,
+		time.RFC822Z,
+		time.RFC850,
+		time.RFC1123,
+		time.RFC3339,
+		time.RFC3339Nano,
+	}
+
+	var t time.Time
+	var err error
+	for _, layout := range layouts {
+		t, err = time.Parse(layout, s)
+		if err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("invalid time format for %s, err: %w", s, err)
 }
