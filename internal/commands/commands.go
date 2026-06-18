@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -246,6 +247,40 @@ func HandleUnfollow(ctx context.Context, s *state.State, c Command) error {
 	})
 	if err != nil {
 		return fmt.Errorf("DeleteFeedFollow Failed: %w", err)
+	}
+
+	return nil
+}
+
+func HandleBrowser(ctx context.Context, s *state.State, c Command) error {
+	if len(c.Arguments) < 1 {
+		return errors.New("The limit number si required")
+	}
+
+	limit, err := strconv.Atoi(c.Arguments[0])
+	if err != nil {
+		return fmt.Errorf("invalid limit value: %w", err)
+	}
+
+	var offset int
+	if len(c.Arguments) > 1 {
+		offset, err = strconv.Atoi(c.Arguments[1])
+		if err != nil {
+			return fmt.Errorf("invalid offset value: %w", err)
+		}
+	}
+
+	posts, err := s.DB.GetPostsForUser(ctx, gatordb.GetPostsForUserParams{
+		UserID: c.User.ID,
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		return fmt.Errorf("GetPostsForUser Failed: %w", err)
+	}
+
+	for _, post := range posts {
+		fmt.Printf("* - %s\n", post.Title)
 	}
 
 	return nil
