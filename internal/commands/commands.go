@@ -252,7 +252,7 @@ func HandleUnfollow(ctx context.Context, s *state.State, c Command) error {
 	return nil
 }
 
-func HandleBrowser(ctx context.Context, s *state.State, c Command) error {
+func HandleBrowse(ctx context.Context, s *state.State, c Command) error {
 	if len(c.Arguments) < 1 {
 		return errors.New("The limit number si required")
 	}

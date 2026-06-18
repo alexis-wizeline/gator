@@ -54,7 +54,7 @@ func main() {
 	gator.Register(followCommandName, commands.GetUserMiddleware(commands.HandleFollow))
 	gator.Register(followingCommandName, commands.GetUserMiddleware(commands.HandleFollowing))
 	gator.Register(unfollowCommandName, commands.GetUserMiddleware(commands.HandleUnfollow))
-	gator.Register(browseCommandName, commands.GetUserMiddleware(commands.HandleBrowser))
+	gator.Register(browseCommandName, commands.GetUserMiddleware(commands.HandleBrowse))
 
 	args := os.Args[1:]
 	if len(args) < 1 {
