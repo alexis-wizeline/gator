@@ -143,10 +143,7 @@ func HandleAgg(ctx context.Context, s *state.State, c Command) error {
 
 	ticker := time.NewTicker(duration)
 	for ; ; <-ticker.C {
-		err = scrapeFeeds(ctx, s)
-		if err != nil {
-			return fmt.Errorf("scrapeFeeds Failed: %w", err)
-		}
+		scrapeFeeds(ctx, s)
 	}
 }
 
@@ -253,13 +250,14 @@ func HandleUnfollow(ctx context.Context, s *state.State, c Command) error {
 }
 
 func HandleBrowse(ctx context.Context, s *state.State, c Command) error {
-	if len(c.Arguments) < 1 {
-		return errors.New("The limit number si required")
-	}
 
-	limit, err := strconv.Atoi(c.Arguments[0])
-	if err != nil {
-		return fmt.Errorf("invalid limit value: %w", err)
+	var err error
+	limit := 10
+	if len(c.Arguments) > 0 {
+		limit, err = strconv.Atoi(c.Arguments[0])
+		if err != nil {
+			return fmt.Errorf("invalid limit value: %w", err)
+		}
 	}
 
 	var offset int
@@ -280,7 +278,7 @@ func HandleBrowse(ctx context.Context, s *state.State, c Command) error {
 	}
 
 	for _, post := range posts {
-		fmt.Printf("* - %s\n", post.Title)
+		fmt.Printf("* - Title: %s, URL: %s\n", post.Title, post.Url)
 	}
 
 	return nil
@@ -307,32 +305,34 @@ func checkUserExist(ctx context.Context, s *state.State, name string) (bool, err
 	return !errors.Is(err, sql.ErrNoRows), err
 }
 
-func scrapeFeeds(ctx context.Context, s *state.State) error {
+func scrapeFeeds(ctx context.Context, s *state.State) {
 
 	nextFeed, err := s.DB.GetNextFeedToFetch(ctx)
 	if err != nil {
-		return fmt.Errorf("GetNextFeedToFetch Failed: %w", err)
+		fmt.Printf("GetNextFeedToFetch Failed: %w\n", err)
+		return
 	}
 
 	feed, err := rss.FetchFeed(ctx, nextFeed.Url)
 	if err != nil {
-		return fmt.Errorf(" %s FetchFeed Fail: %w", nextFeed.Name, err)
+		fmt.Printf(" %s FetchFeed Fail: %w\n", nextFeed.Name, err)
+		return
 	}
 
 	err = s.DB.MarkFeedFetched(ctx, nextFeed.ID)
 	if err != nil {
-		return fmt.Errorf("MarkFeedFetched Failed: %w", err)
 	}
 
 	fmt.Printf("Feed %s fetched\n", feed.Channel.Title)
 	for _, item := range feed.Channel.Item {
 		pubTime, err := parseTime(item.PubDate)
 		if err != nil {
-			return fmt.Errorf("parseTiem Failed: %w", err)
+			fmt.Printf("parseTiem Failed: %w", err)
+			continue
 		}
 
 		hasDesc := len(item.Description) > 0
-
+		currentTime := time.Now()
 		post, err := s.DB.CreatePost(ctx,
 			gatordb.CreatePostParams{
 				ID:          uuid.New(),
@@ -344,21 +344,22 @@ func scrapeFeeds(ctx context.Context, s *state.State) error {
 					Valid:  hasDesc,
 					String: item.Description,
 				},
+				CreatedAt: currentTime,
+				UpdatedAt: currentTime,
 			})
 
-		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			fmt.Printf("%s already exists\n", item.Title)
-			continue
-		}
-
 		if err != nil {
-			return err
+			if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+				fmt.Printf("%s already exists\n", item.Title)
+				continue
+			}
+			fmt.Printf("CreatePost failed: %e", err)
+			continue
 		}
 
 		fmt.Printf("post created: %s: %s", post.ID, post.Title)
 	}
 
-	return nil
 }
 
 func parseTime(s string) (time.Time, error) {
